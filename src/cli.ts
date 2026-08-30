@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { importRules } from './commands/import.js';
 import { inspectRules } from './commands/inspect.js';
 
 const command = process.argv[2] ?? 'help';
@@ -8,6 +9,9 @@ async function main() {
   switch (command) {
     case 'inspect':
       await inspectRules(process.cwd());
+      break;
+    case 'import':
+      await importRules(process.cwd());
       break;
     case 'help':
     case '--help':
@@ -26,7 +30,7 @@ async function main() {
 }
 
 function printHelp() {
-  console.log(`RuleBridge — make your AI coding rules work everywhere.\n\nUsage:\n  rulebridge inspect\n\nCommands:\n  inspect   Discover AI coding-rule files in the current repository\n\nComing next:\n  import    Normalize existing rule files\n  diff      Compare rule semantics across agents\n  fix       Generate compatible native configurations\n  check     CI-friendly consistency validation\n`);
+  console.log(`RuleBridge — make your AI coding rules work everywhere.\n\nUsage:\n  rulebridge inspect\n  rulebridge import\n\nCommands:\n  inspect   Discover AI coding-rule files in the current repository\n  import    Normalize detected rule files into .rulebridge/rules.json\n\nComing next:\n  diff      Compare rule semantics across agents\n  fix       Generate compatible native configurations\n  check     CI-friendly consistency validation\n`);
 }
 
 main().catch((error) => {
