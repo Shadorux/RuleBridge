@@ -26,6 +26,7 @@ npm run build
 node dist/cli.js inspect
 node dist/cli.js import
 node dist/cli.js diff
+node dist/cli.js check
 ```
 
 Or during development:
@@ -34,6 +35,7 @@ Or during development:
 npm run dev -- inspect
 npm run dev -- import
 npm run dev -- diff
+npm run dev -- check
 ```
 
 ## Commands
@@ -95,9 +97,30 @@ RuleBridge diff
 
 The current diff detects shared rules with scope drift, agent-only instructions, consistent shared rules, and package-manager conflicts.
 
+### `rulebridge check`
+
+Run the same cross-agent analysis directly against the repository and return exit code `1` when drift is found. This makes RuleBridge suitable for CI and pull-request gates without committing generated `.rulebridge` output.
+
+```text
+$ rulebridge check
+
+RuleBridge check
+
+⚠ Same instruction, different scope: Use TypeScript strict mode.
+⚠ Potential package-manager conflict
+
+RuleBridge check failed: 2 consistency warnings found.
+```
+
+A clean repository exits successfully:
+
+```text
+RuleBridge check passed: 3 shared rules consistent.
+```
+
 ## Verification
 
-RuleBridge includes reproducible mismatch fixtures under `test/fixtures/` and automated tests for discovery, import semantics, and diff warnings.
+RuleBridge includes reproducible mismatch fixtures under `test/fixtures/` and automated tests for discovery, import semantics, diff warnings, and failing CI exit codes.
 
 Run the full verification suite locally with:
 
@@ -108,13 +131,19 @@ npm run verify
 
 `npm run verify` runs TypeScript checking, the automated test suite, and a production build. The repository also includes a GitHub Actions workflow that runs the same command on pushes and pull requests.
 
+For another repository, a CI step can simply run:
+
+```yaml
+- run: npx rulebridge check
+```
+
 ## Roadmap
 
 - [x] `inspect` — discover existing agent configuration
 - [x] `import` — normalize existing rules into a shared model
 - [x] `diff` — compare rule semantics across agents
+- [x] `check` — CI-friendly consistency validation
 - [ ] `fix` — generate compatible native configurations
-- [ ] `check` — CI-friendly consistency validation
 - [x] basic conflict and duplicate/drift detection
 - [ ] stale file-reference detection
 - [ ] preserve agent-specific instructions alongside shared rules
