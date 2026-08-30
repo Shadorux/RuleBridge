@@ -39,6 +39,10 @@ async function collectFiles(root: string, relativeDir: string, predicate: (name:
   return files;
 }
 
+function isGeneratedName(name: string) {
+  return name.startsWith('rulebridge-');
+}
+
 export async function discoverRuleSources(root: string): Promise<DiscoveredRuleSource[]> {
   const sources: DiscoveredRuleSource[] = [];
 
@@ -53,11 +57,19 @@ export async function discoverRuleSources(root: string): Promise<DiscoveredRuleS
   await addFile('cursor', 'Cursor', '.cursorrules');
   await addFile('copilot', 'GitHub Copilot', '.github/copilot-instructions.md');
 
-  for (const relativePath of await collectFiles(root, '.cursor/rules', (name) => name.endsWith('.mdc') || name.endsWith('.md'))) {
+  for (const relativePath of await collectFiles(
+    root,
+    '.cursor/rules',
+    (name) => !isGeneratedName(name) && (name.endsWith('.mdc') || name.endsWith('.md')),
+  )) {
     sources.push({ agent: 'cursor', displayName: 'Cursor', relativePath });
   }
 
-  for (const relativePath of await collectFiles(root, '.github/instructions', (name) => name.endsWith('.instructions.md') || name.endsWith('.md'))) {
+  for (const relativePath of await collectFiles(
+    root,
+    '.github/instructions',
+    (name) => !isGeneratedName(name) && (name.endsWith('.instructions.md') || name.endsWith('.md')),
+  )) {
     sources.push({ agent: 'copilot', displayName: 'GitHub Copilot', relativePath });
   }
 
