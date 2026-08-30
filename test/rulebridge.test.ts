@@ -3,6 +3,7 @@ import { cp, mkdtemp, readFile, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import { checkRules } from '../src/commands/check.js';
 import { diffRules } from '../src/commands/diff.js';
 import { importRules } from '../src/commands/import.js';
 import { discoverRuleSources } from '../src/discovery.js';
@@ -20,14 +21,17 @@ async function withFixture(run: (root: string) => Promise<void>) {
   }
 }
 
-async function captureLogs(run: () => Promise<void>) {
+async function captureOutput(run: () => Promise<void>) {
   const lines: string[] = [];
-  const original = console.log;
+  const originalLog = console.log;
+  const originalError = console.error;
   console.log = (...args: unknown[]) => lines.push(args.map(String).join(' '));
+  console.error = (...args: unknown[]) => lines.push(args.map(String).join(' '));
   try {
     await run();
   } finally {
-    console.log = original;
+    console.log = originalLog;
+    console.error = originalError;
   }
   return lines.join('\n');
 }
@@ -48,7 +52,7 @@ test('discovers Claude, Cursor, and Copilot rule sources', async () => {
 
 test('import preserves agent-specific scope semantics', async () => {
   await withFixture(async (root) => {
-    await captureLogs(() => importRules(root));
+    await captureOutput(() => importRules(root));
     const imported = JSON.parse(
       await readFile(path.join(root, '.rulebridge/rules.json'), 'utf8'),
     ) as ImportedRules;
@@ -66,12 +70,27 @@ test('import preserves agent-specific scope semantics', async () => {
 
 test('diff detects scope drift, unique rules, and package-manager conflicts', async () => {
   await withFixture(async (root) => {
-    await captureLogs(() => importRules(root));
-    const output = await captureLogs(() => diffRules(root));
+    await captureOutput(() => importRules(root));
+    const output = await captureOutput(() => diffRules(root));
 
     assert.match(output, /Same instruction, different scope/);
     assert.match(output, /Potential package-manager conflict/);
     assert.match(output, /claude only:/);
     assert.match(output, /warning/);
+  });
+});
+
+test('check returns a failing exit code when rule drift exists', async () => {
+  await withFixture(async (root) => {
+    const previousExitCode = process.exitCode;
+    process.exitCode = undefined;
+    try {
+      const output = await captureOutput(() => checkRules(root));
+      assert.equal(process.exitCode, 1);
+      assert.match(output, /RuleBridge check failed/);
+      assert.match(output, /Potential package-manager conflict/);
+    } finally {
+      process.exitCode = previousExitCode;
+    }
   });
 });
