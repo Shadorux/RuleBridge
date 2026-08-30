@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { diffRules } from './commands/diff.js';
 import { importRules } from './commands/import.js';
 import { inspectRules } from './commands/inspect.js';
 
@@ -12,6 +13,9 @@ async function main() {
       break;
     case 'import':
       await importRules(process.cwd());
+      break;
+    case 'diff':
+      await diffRules(process.cwd());
       break;
     case 'help':
     case '--help':
@@ -30,7 +34,7 @@ async function main() {
 }
 
 function printHelp() {
-  console.log(`RuleBridge — make your AI coding rules work everywhere.\n\nUsage:\n  rulebridge inspect\n  rulebridge import\n\nCommands:\n  inspect   Discover AI coding-rule files in the current repository\n  import    Normalize detected rule files into .rulebridge/rules.json\n\nComing next:\n  diff      Compare rule semantics across agents\n  fix       Generate compatible native configurations\n  check     CI-friendly consistency validation\n`);
+  console.log(`RuleBridge — make your AI coding rules work everywhere.\n\nUsage:\n  rulebridge inspect\n  rulebridge import\n  rulebridge diff\n\nCommands:\n  inspect   Discover AI coding-rule files in the current repository\n  import    Normalize detected rule files into .rulebridge/rules.json\n  diff      Compare normalized rules across coding agents\n\nComing next:\n  fix       Generate compatible native configurations\n  check     CI-friendly consistency validation\n`);
 }
 
 main().catch((error) => {
