@@ -1,0 +1,37 @@
+{
+  "name": "rulebridge",
+  "version": "0.1.0",
+  "description": "Make your AI coding rules work everywhere.",
+  "type": "module",
+  "bin": {
+    "rulebridge": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx src/cli.ts",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "start": "node dist/cli.js"
+  },
+  "keywords": [
+    "ai",
+    "coding-agents",
+    "codex",
+    "claude-code",
+    "cursor",
+    "github-copilot",
+    "developer-tools",
+    "cli"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "files": [
+    "dist"
+  ],
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0"
+  }
+}
