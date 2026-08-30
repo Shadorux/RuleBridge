@@ -4,6 +4,16 @@ import path from 'node:path';
 import type { DiscoveredRuleSource } from './discovery.js';
 import type { NormalizedRule } from './types.js';
 
+const MANAGED_START = '<!-- rulebridge:start -->';
+const MANAGED_END = '<!-- rulebridge:end -->';
+
+function stripManagedBlock(raw: string) {
+  const start = raw.indexOf(MANAGED_START);
+  const end = raw.indexOf(MANAGED_END);
+  if (start === -1 || end === -1 || end < start) return raw;
+  return `${raw.slice(0, start)}${raw.slice(end + MANAGED_END.length)}`.trim();
+}
+
 function parseScalar(value: string) {
   const trimmed = value.trim();
   if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
@@ -62,7 +72,7 @@ function makeId(source: DiscoveredRuleSource, content: string) {
 }
 
 export async function parseRuleSource(root: string, source: DiscoveredRuleSource): Promise<NormalizedRule> {
-  const raw = await readFile(path.join(root, source.relativePath), 'utf8');
+  const raw = stripManagedBlock(await readFile(path.join(root, source.relativePath), 'utf8'));
   const { attributes, content } = splitFrontmatter(raw);
 
   const description = attributes.get('description');
