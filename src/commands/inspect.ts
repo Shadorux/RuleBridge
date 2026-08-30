@@ -1,48 +1,27 @@
-import { access } from 'node:fs/promises';
-import path from 'node:path';
-
-type AgentRuleTarget = {
-  agent: string;
-  paths: string[];
-};
-
-const TARGETS: AgentRuleTarget[] = [
-  { agent: 'Codex', paths: ['AGENTS.md'] },
-  { agent: 'Claude Code', paths: ['CLAUDE.md'] },
-  { agent: 'Cursor', paths: ['.cursor/rules', '.cursorrules', 'AGENTS.md'] },
-  { agent: 'GitHub Copilot', paths: ['.github/copilot-instructions.md', '.github/instructions', 'AGENTS.md'] },
-];
-
-async function exists(targetPath: string) {
-  try {
-    await access(targetPath);
-    return true;
-  } catch {
-    return false;
-  }
-}
+import { discoverRuleSources } from '../discovery.js';
 
 export async function inspectRules(root: string) {
   console.log('RuleBridge inspect\n');
 
-  let found = 0;
+  const sources = await discoverRuleSources(root);
+  const agents = [
+    { id: 'codex', name: 'Codex' },
+    { id: 'claude', name: 'Claude Code' },
+    { id: 'cursor', name: 'Cursor' },
+    { id: 'copilot', name: 'GitHub Copilot' },
+  ] as const;
 
-  for (const target of TARGETS) {
-    const matches: string[] = [];
-
-    for (const relativePath of target.paths) {
-      if (await exists(path.join(root, relativePath))) {
-        matches.push(relativePath);
-      }
-    }
+  for (const agent of agents) {
+    const matches = sources
+      .filter((source) => source.agent === agent.id)
+      .map((source) => source.relativePath);
 
     if (matches.length > 0) {
-      found += matches.length;
-      console.log(`✓ ${target.agent}: ${matches.join(', ')}`);
+      console.log(`✓ ${agent.name}: ${matches.join(', ')}`);
     } else {
-      console.log(`· ${target.agent}: no rules detected`);
+      console.log(`· ${agent.name}: no rules detected`);
     }
   }
 
-  console.log(`\n${found} rule source${found === 1 ? '' : 's'} detected.`);
+  console.log(`\n${sources.length} rule source${sources.length === 1 ? '' : 's'} detected.`);
 }
