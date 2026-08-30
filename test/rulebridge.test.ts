@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { cp, mkdtemp, readFile, rm } from 'node:fs/promises';
+import { cp, mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -115,7 +115,7 @@ test('fix dry-run plans changes without writing files', async () => {
   });
 });
 
-test('fix preserves handwritten content and generates native rule files', async () => {
+test('fix preserves handwritten content, generates native files, and is idempotent', async () => {
   await withFixture(async (root) => {
     const beforeClaude = await readFile(path.join(root, 'CLAUDE.md'), 'utf8');
     await captureOutput(() => fixRules(root));
@@ -126,11 +126,10 @@ test('fix preserves handwritten content and generates native rule files', async 
     assert.ok(claude.includes(beforeClaude.trim()));
     assert.match(claude, /rulebridge:start/);
 
-    const sources = await discoverRuleSources(root);
-    const generatedCursor = sources.filter((source) => source.relativePath.includes('rulebridge-') && source.agent === 'cursor');
-    const generatedCopilot = sources.filter((source) => source.relativePath.includes('rulebridge-') && source.agent === 'copilot');
-    assert.ok(generatedCursor.length >= 4);
-    assert.ok(generatedCopilot.length >= 4);
+    const cursorFiles = await readdir(path.join(root, '.cursor/rules'));
+    const copilotFiles = await readdir(path.join(root, '.github/instructions'));
+    assert.ok(cursorFiles.filter((name) => name.startsWith('rulebridge-')).length >= 4);
+    assert.ok(copilotFiles.filter((name) => name.startsWith('rulebridge-')).length >= 4);
 
     const firstPass = await readFile(path.join(root, 'AGENTS.md'), 'utf8');
     await captureOutput(() => fixRules(root));
