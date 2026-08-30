@@ -10,6 +10,8 @@
     "build": "tsc -p tsconfig.json",
     "dev": "tsx src/cli.ts",
     "check": "tsc -p tsconfig.json --noEmit",
+    "test": "tsx --test test/*.test.ts",
+    "verify": "npm run check && npm test && npm run build",
     "start": "node dist/cli.js"
   },
   "keywords": [
