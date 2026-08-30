@@ -11,7 +11,14 @@ export async function checkRules(root: string) {
     return;
   }
 
-  const rules = await Promise.all(sources.map((source) => parseRuleSource(root, source)));
+  const parsed = await Promise.all(sources.map((source) => parseRuleSource(root, source)));
+  const rules = parsed.filter((rule) => rule.content.trim().length > 0);
+
+  if (rules.length < 2) {
+    console.log('Need at least two handwritten rule sources outside RuleBridge-managed sections to check consistency.');
+    return;
+  }
+
   const analysis = analyzeRules(rules);
 
   for (const item of analysis.consistent) console.log(`✓ ${item}`);
