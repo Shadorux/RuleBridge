@@ -72,9 +72,14 @@ export async function fixRules(root: string, options: { dryRun?: boolean } = {})
     return;
   }
 
-  const rules = await Promise.all(sources.map((source) => parseRuleSource(root, source)));
-  const plans: PlannedWrite[] = [];
+  const parsed = await Promise.all(sources.map((source) => parseRuleSource(root, source)));
+  const rules = parsed.filter((rule) => rule.content.trim().length > 0);
+  if (rules.length === 0) {
+    console.log('No handwritten rules remain outside RuleBridge-managed sections.');
+    return;
+  }
 
+  const plans: PlannedWrite[] = [];
   plans.push(await planManagedMarkdown(root, 'AGENTS.md', rules));
   plans.push(await planManagedMarkdown(root, 'CLAUDE.md', rules));
 
