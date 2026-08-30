@@ -5,6 +5,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { checkRules } from '../src/commands/check.js';
 import { diffRules } from '../src/commands/diff.js';
+import { fixRules } from '../src/commands/fix.js';
 import { importRules } from '../src/commands/import.js';
 import { discoverRuleSources } from '../src/discovery.js';
 import type { ImportedRules } from '../src/types.js';
@@ -18,6 +19,14 @@ async function withFixture(run: (root: string) => Promise<void>) {
     await run(root);
   } finally {
     await rm(root, { recursive: true, force: true });
+  }
+}
+
+async function readOptional(filePath: string) {
+  try {
+    return await readFile(filePath, 'utf8');
+  } catch {
+    return undefined;
   }
 }
 
@@ -92,5 +101,40 @@ test('check returns a failing exit code when rule drift exists', async () => {
     } finally {
       process.exitCode = previousExitCode;
     }
+  });
+});
+
+test('fix dry-run plans changes without writing files', async () => {
+  await withFixture(async (root) => {
+    const beforeClaude = await readFile(path.join(root, 'CLAUDE.md'), 'utf8');
+    const output = await captureOutput(() => fixRules(root, { dryRun: true }));
+
+    assert.match(output, /Dry run only/);
+    assert.equal(await readOptional(path.join(root, 'AGENTS.md')), undefined);
+    assert.equal(await readFile(path.join(root, 'CLAUDE.md'), 'utf8'), beforeClaude);
+  });
+});
+
+test('fix preserves handwritten content and generates native rule files', async () => {
+  await withFixture(async (root) => {
+    const beforeClaude = await readFile(path.join(root, 'CLAUDE.md'), 'utf8');
+    await captureOutput(() => fixRules(root));
+
+    const agents = await readFile(path.join(root, 'AGENTS.md'), 'utf8');
+    const claude = await readFile(path.join(root, 'CLAUDE.md'), 'utf8');
+    assert.match(agents, /rulebridge:start/);
+    assert.ok(claude.includes(beforeClaude.trim()));
+    assert.match(claude, /rulebridge:start/);
+
+    const sources = await discoverRuleSources(root);
+    const generatedCursor = sources.filter((source) => source.relativePath.includes('rulebridge-') && source.agent === 'cursor');
+    const generatedCopilot = sources.filter((source) => source.relativePath.includes('rulebridge-') && source.agent === 'copilot');
+    assert.ok(generatedCursor.length >= 4);
+    assert.ok(generatedCopilot.length >= 4);
+
+    const firstPass = await readFile(path.join(root, 'AGENTS.md'), 'utf8');
+    await captureOutput(() => fixRules(root));
+    const secondPass = await readFile(path.join(root, 'AGENTS.md'), 'utf8');
+    assert.equal(secondPass, firstPass);
   });
 });
