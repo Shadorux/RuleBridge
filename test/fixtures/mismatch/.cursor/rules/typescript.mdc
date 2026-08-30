@@ -1,0 +1,6 @@
+---
+description: TypeScript rules
+globs: [src/**/*.ts]
+alwaysApply: false
+---
+Use TypeScript strict mode.
