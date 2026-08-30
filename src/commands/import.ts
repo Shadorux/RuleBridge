@@ -12,7 +12,14 @@ export async function importRules(root: string) {
     return;
   }
 
-  const rules = await Promise.all(sources.map((source) => parseRuleSource(root, source)));
+  const parsed = await Promise.all(sources.map((source) => parseRuleSource(root, source)));
+  const rules = parsed.filter((rule) => rule.content.trim().length > 0);
+
+  if (rules.length === 0) {
+    console.log('RuleBridge import\n\nNo handwritten rules remain outside RuleBridge-managed sections.');
+    return;
+  }
+
   const output: ImportedRules = {
     version: 1,
     generatedAt: new Date().toISOString(),
