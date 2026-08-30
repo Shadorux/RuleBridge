@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { checkRules } from './commands/check.js';
 import { diffRules } from './commands/diff.js';
 import { importRules } from './commands/import.js';
 import { inspectRules } from './commands/inspect.js';
@@ -16,6 +17,9 @@ async function main() {
       break;
     case 'diff':
       await diffRules(process.cwd());
+      break;
+    case 'check':
+      await checkRules(process.cwd());
       break;
     case 'help':
     case '--help':
@@ -34,7 +38,7 @@ async function main() {
 }
 
 function printHelp() {
-  console.log(`RuleBridge — make your AI coding rules work everywhere.\n\nUsage:\n  rulebridge inspect\n  rulebridge import\n  rulebridge diff\n\nCommands:\n  inspect   Discover AI coding-rule files in the current repository\n  import    Normalize detected rule files into .rulebridge/rules.json\n  diff      Compare normalized rules across coding agents\n\nComing next:\n  fix       Generate compatible native configurations\n  check     CI-friendly consistency validation\n`);
+  console.log(`RuleBridge — make your AI coding rules work everywhere.\n\nUsage:\n  rulebridge inspect\n  rulebridge import\n  rulebridge diff\n  rulebridge check\n\nCommands:\n  inspect   Discover AI coding-rule files in the current repository\n  import    Normalize detected rule files into .rulebridge/rules.json\n  diff      Compare normalized rules across coding agents\n  check     Fail with exit code 1 when cross-agent rule drift is detected\n\nComing next:\n  fix       Generate compatible native configurations\n`);
 }
 
 main().catch((error) => {
