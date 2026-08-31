@@ -3,6 +3,8 @@ import path from 'node:path';
 import { analyzeRules } from '../analyze.js';
 import type { ImportedRules } from '../types.js';
 
+const ICONS = { info: 'ℹ', warning: '⚠', error: '✖' } as const;
+
 export async function diffRules(root: string) {
   const inputPath = path.join(root, '.rulebridge', 'rules.json');
   let imported: ImportedRules;
@@ -21,16 +23,20 @@ export async function diffRules(root: string) {
     return;
   }
 
-  const analysis = analyzeRules(imported.rules);
+  const analysis = await analyzeRules(imported.rules, root);
   for (const item of analysis.consistent) console.log(`✓ ${item}`);
-  for (const item of analysis.warnings) console.log(`⚠ ${item}`);
+  for (const finding of analysis.findings) {
+    console.log(`${ICONS[finding.severity]} [${finding.severity}] ${finding.message}`);
+  }
 
-  if (analysis.warnings.length === 0 && analysis.consistent.length === 0) {
+  if (analysis.findings.length === 0 && analysis.consistent.length === 0) {
     console.log('No comparable cross-agent rules found yet.');
   }
 
+  const counts = { info: 0, warning: 0, error: 0 };
+  for (const finding of analysis.findings) counts[finding.severity]++;
   console.log(
-    `\n${analysis.warnings.length} warning${analysis.warnings.length === 1 ? '' : 's'}, ` +
-      `${analysis.consistent.length} consistent shared rule${analysis.consistent.length === 1 ? '' : 's'}.`,
+    `\n${counts.error} error${counts.error === 1 ? '' : 's'}, ${counts.warning} warning${counts.warning === 1 ? '' : 's'}, ` +
+      `${counts.info} info, ${analysis.consistent.length} consistent shared rule${analysis.consistent.length === 1 ? '' : 's'}.`,
   );
 }
