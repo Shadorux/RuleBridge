@@ -1,151 +1,104 @@
 # RuleBridge
 
-**Make your AI coding rules work everywhere.**
+**One rule set. Native instructions for every coding agent.**
 
-RuleBridge inspects, imports, compares, checks, and safely translates coding-agent instruction files across Codex, Claude Code, Cursor, and GitHub Copilot.
+RuleBridge is a local-first TypeScript CLI that inspects, compares, and safely translates project instructions between Codex, Claude Code, Cursor, and GitHub Copilot. It translates scope semantics instead of blindly copying Markdown, and it never silently replaces handwritten configuration.
 
-Instead of blindly copying Markdown between formats, RuleBridge understands path scoping and keeps generated content isolated from handwritten configuration.
+## Before / after
 
-## Why RuleBridge?
+Before, a project can drift into several slightly different rule files:
 
-AI coding agents increasingly use different instruction formats:
+```text
+.cursor/rules/typescript.mdc             → globs: src/**/*.ts
+.github/instructions/ts.instructions.md  → applyTo: **/*.ts
+CLAUDE.md                                → use pnpm
+```
 
-- `AGENTS.md`
-- `CLAUDE.md`
-- `.cursor/rules/*.mdc`
-- `.github/copilot-instructions.md`
-- `.github/instructions/*.instructions.md`
+After `rulebridge check`, drift is explicit. After `rulebridge fix`, each agent gets native RuleBridge-owned output while the original handwritten files remain intact.
 
-Maintaining the same project conventions in several places gets messy fast. RuleBridge makes those rules portable and verifiable.
+```text
+AGENTS.md                                      + managed section
+CLAUDE.md                                      + managed section
+.cursor/rules/rulebridge-<id>.mdc             + native Cursor rule
+.github/instructions/rulebridge-<id>.instructions.md + native Copilot rule
+```
 
-## Quick start
+## Install
 
 ```bash
-npm install
-npm run build
-node dist/cli.js inspect
-node dist/cli.js import
-node dist/cli.js diff
-node dist/cli.js check
-node dist/cli.js fix --dry-run
-node dist/cli.js fix
+npm install -D @shadorux/rulebridge
+# or, before publishing: npm install -D ./rulebridge-0.1.0.tgz
 ```
 
-## Commands
+The unscoped `rulebridge` package name is already owned on npm. This package uses the available scoped name `@shadorux/rulebridge` while keeping the `rulebridge` CLI command.
 
-### `rulebridge inspect`
-
-Discover supported coding-agent rule files in the current repository.
-
-### `rulebridge import`
-
-Normalize detected rule files into `.rulebridge/rules.json`, preserving source agent, source path, descriptions, Cursor `globs`, Copilot `applyTo`, always-apply semantics, and stable IDs.
-
-### `rulebridge diff`
-
-Compare normalized rules and surface cross-agent findings with explicit severity levels:
-
-- `[info]` — useful differences such as agent-only rules that do not block CI by themselves
-- `[warning]` — drift that should be reviewed, such as duplicate rules or stale path references
-- `[error]` — direct conflicts, such as incompatible tool choices or opposite instructions
-
-Current analysis detects:
-
-- same instruction with different scopes
-- duplicate rules inside one agent
-- stale scope globs that match no repository files
-- stale backticked file/path references
-- agent-only coverage differences
-- package-manager conflicts (`npm`, `pnpm`, `yarn`, `bun`)
-- test-framework conflicts (`Jest`, `Vitest`, `Mocha`, `AVA`)
-- formatter conflicts (`Prettier`, `Biome`, `dprint`)
-- linter conflicts (`ESLint`, `Biome`, `StandardJS`)
-- opposite directives such as `Use X` versus `Never use X`
-
-### `rulebridge check`
-
-Run the same analysis directly against the repository. Informational findings are allowed; warnings and errors return exit code `1`, making RuleBridge usable as a CI or pull-request gate.
-
-```yaml
-- run: npx rulebridge check
-```
-
-### `rulebridge fix`
-
-Generate native configurations for all four supported agents while protecting handwritten content.
+## CLI
 
 ```bash
-rulebridge fix --dry-run
-rulebridge fix
+rulebridge inspect             # find instruction files
+rulebridge import              # write .rulebridge/rules.json
+rulebridge diff                # inspect semantic drift
+rulebridge check               # CI-friendly warnings/errors gate
+rulebridge fix --dry-run       # show safe creates, updates, and cleanup
+rulebridge fix                 # apply only RuleBridge-owned changes
 ```
 
-`--dry-run` prints every planned create/update operation without touching disk.
+`check` exits with code 1 for warnings or errors; informational findings do not block CI.
 
-RuleBridge currently generates or updates:
+## Supported formats
 
-- `AGENTS.md`
-- `CLAUDE.md`
-- `.cursor/rules/rulebridge-<id>.mdc`
-- `.github/instructions/rulebridge-<id>.instructions.md`
+| Agent | Handwritten inputs | Generated output |
+| --- | --- | --- |
+| Codex | `AGENTS.md` | managed section in `AGENTS.md` |
+| Claude Code | `CLAUDE.md` | managed section in `CLAUDE.md` |
+| Cursor | `.cursorrules`, `.cursor/rules/**/*.mdc` | `.cursor/rules/rulebridge-<id>.mdc` |
+| GitHub Copilot | `.github/copilot-instructions.md`, `.github/instructions/**/*.instructions.md` | `.github/instructions/rulebridge-<id>.instructions.md` |
 
-Safety behavior:
+## Safety model
 
-- existing handwritten `AGENTS.md` and `CLAUDE.md` content stays outside a clearly marked RuleBridge-managed block
-- Cursor and Copilot rules are generated into separate RuleBridge-owned files rather than replacing existing native files
-- RuleBridge refuses to replace a generated-path file if it does not contain a RuleBridge ownership marker
-- generated files are ignored during future discovery, preventing RuleBridge from recursively importing its own output
-- repeated `fix` runs are designed to be idempotent
-- agent-specific source content is carried into the managed output instead of being silently discarded
+- Handwritten `AGENTS.md` and `CLAUDE.md` content stays outside a marked managed block.
+- Cursor and Copilot output is written to separate, ownership-marked files.
+- A generated-path file without a RuleBridge marker is never overwritten or deleted.
+- `.rulebridge/generated-files.json` records exactly which generated Cursor/Copilot files RuleBridge owns; stale owned files are cleaned up, including visibly in `--dry-run`.
+- Generated output is ignored during later discovery, and repeated `fix` runs are idempotent.
 
-## Verification
+## Why not just copy files?
 
-RuleBridge includes reproducible mismatch fixtures and automated tests for discovery, import semantics, severity-aware analysis, stale paths, duplicate detection, opposite instructions, broader tool conflicts, CI exit codes, dry-run behavior, handwritten-content preservation, native generation, and repeated-fix idempotence.
+The formats are not interchangeable. Cursor uses `globs` and `alwaysApply`; Copilot uses `applyTo`; Codex and Claude primarily use project Markdown. RuleBridge normalizes those choices, preserves them where each format supports them, and flags meaningful contradictions such as different package managers, test frameworks, formatters, linters, stale paths, duplicate rules, and opposite directives.
 
-Run the full verification suite locally with:
+## Compared with basic sync tools
 
-```bash
-npm install
-npm run verify
+File-sync tools are excellent when files are intended to be identical. RuleBridge is for agent configurations that have different native formats and may contain agent-specific, handwritten content. It gives you a semantic comparison plus a conservative generated layer instead of treating every file as disposable.
+
+## Terminal demo
+
+```console
+$ rulebridge check
+RuleBridge check
+
+⚠ [warning] Same instruction, different scope: Use TypeScript strict mode.
+✖ [error] Conflicting package manager instructions
+
+RuleBridge check failed: 1 error and 1 warning found.
+
+$ rulebridge fix --dry-run
+· update AGENTS.md
+· create .cursor/rules/rulebridge-a1b2c3d4.mdc
+· delete .github/instructions/rulebridge-stale.instructions.md
+Dry run only. 3 file operations planned; nothing was written.
 ```
-
-`npm run verify` runs TypeScript checking, automated tests, and a production build.
-
-## Roadmap
-
-- [x] `inspect` — discover existing agent configuration
-- [x] `import` — normalize existing rules into a shared model
-- [x] `diff` — compare rule semantics across agents
-- [x] `check` — CI-friendly consistency validation
-- [x] `fix` — generate compatible native configurations
-- [x] `fix --dry-run`
-- [x] preserve handwritten and agent-specific content
-- [x] duplicate-rule detection
-- [x] stale file/path reference detection
-- [x] richer cross-tool conflict detection
-- [x] opposite-instruction detection
-- [x] info / warning / error severity levels
-- [ ] generated-file cleanup manifest
-
-## Supported agents
-
-- OpenAI Codex
-- Claude Code
-- Cursor
-- GitHub Copilot
-
-## Philosophy
-
-RuleBridge is local-first, predictable, and conservative around handwritten configuration. Generated output is explicitly marked and RuleBridge only replaces content it owns.
 
 ## Development
 
 Requires Node.js 20+.
 
 ```bash
-npm install
+npm ci
 npm run verify
 ```
 
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the development workflow and [CHANGELOG.md](CHANGELOG.md) for release notes.
+
 ## License
 
-MIT
+[MIT](LICENSE)

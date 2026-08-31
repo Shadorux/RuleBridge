@@ -1,0 +1,6 @@
+---
+description: React rules
+globs: [src/**/*.tsx]
+alwaysApply: false
+---
+Use React components.

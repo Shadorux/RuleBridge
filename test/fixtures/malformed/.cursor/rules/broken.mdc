@@ -1,0 +1,4 @@
+---
+description: unfinished
+globs: [src/**/*.ts]
+Use TypeScript strict mode.

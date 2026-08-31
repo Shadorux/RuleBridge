@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { cp, mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
+import { cp, mkdtemp, readFile, readdir, rm, unlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -8,19 +8,45 @@ import { diffRules } from '../src/commands/diff.js';
 import { fixRules } from '../src/commands/fix.js';
 import { importRules } from '../src/commands/import.js';
 import { discoverRuleSources } from '../src/discovery.js';
+import { parseRuleSource } from '../src/parsers.js';
 import type { ImportedRules } from '../src/types.js';
 
 const fixtureRoot = path.resolve('test/fixtures/mismatch');
 
-async function withFixture(run: (root: string) => Promise<void>) {
+async function withFixture(run: (root: string) => Promise<void>, fixture = fixtureRoot) {
   const root = await mkdtemp(path.join(os.tmpdir(), 'rulebridge-'));
-  await cp(fixtureRoot, root, { recursive: true });
+  await cp(fixture, root, { recursive: true });
   try {
     await run(root);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
 }
+
+test('discovers nested Cursor rules and multiple Copilot instruction files', async () => {
+  const sources = await discoverRuleSources(path.resolve('test/fixtures/structured'));
+  assert.deepEqual(
+    sources.map((source) => source.relativePath),
+    [
+      '.cursor/rules/frontend/react.mdc',
+      '.github/instructions/javascript.instructions.md',
+      '.github/instructions/typescript.instructions.md',
+      'AGENTS.md',
+    ],
+  );
+});
+
+test('malformed frontmatter remains rule content instead of being silently discarded', async () => {
+  const root = path.resolve('test/fixtures/malformed');
+  const parsed = await parseRuleSource(root, {
+    agent: 'cursor',
+    displayName: 'Cursor',
+    relativePath: '.cursor/rules/broken.mdc',
+  });
+  assert.match(parsed.content, /description: unfinished/);
+  assert.equal(parsed.scope, undefined);
+  assert.equal(parsed.alwaysApply, true);
+});
 
 async function readOptional(filePath: string) {
   try {
@@ -105,6 +131,20 @@ test('check returns a failing exit code when rule drift exists', async () => {
   });
 });
 
+test('check allows a clean agreement fixture and leaves the exit code clear', async () => {
+  await withFixture(async (root) => {
+    const previousExitCode = process.exitCode;
+    process.exitCode = undefined;
+    try {
+      const output = await captureOutput(() => checkRules(root));
+      assert.equal(process.exitCode, undefined);
+      assert.match(output, /RuleBridge check passed/);
+    } finally {
+      process.exitCode = previousExitCode;
+    }
+  }, path.resolve('test/fixtures/agreement'));
+});
+
 test('fix dry-run plans changes without writing files', async () => {
   await withFixture(async (root) => {
     const beforeClaude = await readFile(path.join(root, 'CLAUDE.md'), 'utf8');
@@ -126,6 +166,7 @@ test('fix preserves handwritten content, generates native files, and is idempote
     assert.match(agents, /rulebridge:start/);
     assert.ok(claude.includes(beforeClaude.trim()));
     assert.match(claude, /rulebridge:start/);
+    assert.ok(await readOptional(path.join(root, '.rulebridge/generated-files.json')));
 
     const cursorFiles = await readdir(path.join(root, '.cursor/rules'));
     const copilotFiles = await readdir(path.join(root, '.github/instructions'));
@@ -136,5 +177,48 @@ test('fix preserves handwritten content, generates native files, and is idempote
     await captureOutput(() => fixRules(root));
     const secondPass = await readFile(path.join(root, 'AGENTS.md'), 'utf8');
     assert.equal(secondPass, firstPass);
+  });
+});
+
+test('fix removes only stale, RuleBridge-owned generated files and shows cleanup in dry-run', async () => {
+  await withFixture(async (root) => {
+    await captureOutput(() => fixRules(root));
+    await unlink(path.join(root, '.cursor/rules/typescript.mdc'));
+
+    const dryRun = await captureOutput(() => fixRules(root, { dryRun: true }));
+    const staleMatch = dryRun.match(/delete +(\.cursor\/rules\/rulebridge-[^\s]+\.mdc)/);
+    assert.ok(staleMatch, 'expected a stale generated Cursor rule to be planned for deletion');
+    assert.ok(await readOptional(path.join(root, staleMatch[1]!)));
+
+    await captureOutput(() => fixRules(root));
+    assert.equal(await readOptional(path.join(root, staleMatch[1]!)), undefined);
+
+    const handwrittenPath = path.join(root, '.cursor/rules/rulebridge-handwritten.mdc');
+    await writeFile(handwrittenPath, 'Do not remove me.\n');
+    const finalDryRun = await captureOutput(() => fixRules(root, { dryRun: true }));
+    assert.doesNotMatch(finalDryRun, /delete +\.cursor\/rules\/rulebridge-handwritten\.mdc/);
+  });
+});
+
+test('fix never deletes a manifest-listed file after its ownership marker is removed', async () => {
+  await withFixture(async (root) => {
+    await captureOutput(() => fixRules(root));
+    const cursorDir = path.join(root, '.cursor/rules');
+    // The matching generated file is listed in the manifest, then deliberately made handwritten.
+    const generatedNames = await readdir(cursorDir);
+    const generatedName = (await Promise.all(
+      generatedNames.map(async (name) => ({
+        name,
+        content: await readFile(path.join(cursorDir, name), 'utf8'),
+      })),
+    )).find((file) => file.name.startsWith('rulebridge-') && file.content.includes('Use TypeScript strict mode.'))?.name;
+    assert.ok(generatedName);
+    await writeFile(path.join(cursorDir, generatedName), 'This file is now handwritten.\n');
+    await unlink(path.join(cursorDir, 'typescript.mdc'));
+    await unlink(path.join(root, '.github/instructions/typescript.instructions.md'));
+
+    const output = await captureOutput(() => fixRules(root, { dryRun: true }));
+    assert.doesNotMatch(output, new RegExp(`delete +\\.cursor/rules/${generatedName}`));
+    assert.equal(await readFile(path.join(cursorDir, generatedName), 'utf8'), 'This file is now handwritten.\n');
   });
 });

@@ -1,7 +1,16 @@
 {
-  "name": "rulebridge",
+  "name": "@shadorux/rulebridge",
   "version": "0.1.0",
   "description": "Make your AI coding rules work everywhere.",
+  "author": "Shadorux",
+  "homepage": "https://github.com/Shadorux/RuleBridge#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Shadorux/RuleBridge.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Shadorux/RuleBridge/issues"
+  },
   "type": "module",
   "bin": {
     "rulebridge": "dist/cli.js"
@@ -10,7 +19,7 @@
     "build": "tsc -p tsconfig.json",
     "dev": "tsx src/cli.ts",
     "check": "tsc -p tsconfig.json --noEmit",
-    "test": "tsx --test test/*.test.ts",
+    "test": "node --import tsx --test test/*.test.ts",
     "verify": "npm run check && npm test && npm run build",
     "start": "node dist/cli.js"
   },
@@ -29,7 +38,10 @@
     "node": ">=20"
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
   ],
   "devDependencies": {
     "@types/node": "^24.0.0",

@@ -1,0 +1,4 @@
+---
+applyTo: "**/*.js"
+---
+Use ESM.

@@ -21,3 +21,8 @@ export type ImportedRules = {
   root: string;
   rules: NormalizedRule[];
 };
+
+export type GeneratedFileManifest = {
+  version: 1;
+  files: string[];
+};
