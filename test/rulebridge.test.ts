@@ -83,9 +83,10 @@ test('diff detects scope drift, unique rules, and package-manager conflicts', as
     const output = await captureOutput(() => diffRules(root));
 
     assert.match(output, /Same instruction, different scope/);
-    assert.match(output, /Potential package-manager conflict/);
+    assert.match(output, /Conflicting package manager instructions/);
     assert.match(output, /claude only:/);
-    assert.match(output, /warning/);
+    assert.match(output, /\[error\]/);
+    assert.match(output, /\[warning\]/);
   });
 });
 
@@ -97,7 +98,7 @@ test('check returns a failing exit code when rule drift exists', async () => {
       const output = await captureOutput(() => checkRules(root));
       assert.equal(process.exitCode, 1);
       assert.match(output, /RuleBridge check failed/);
-      assert.match(output, /Potential package-manager conflict/);
+      assert.match(output, /Conflicting package manager instructions/);
     } finally {
       process.exitCode = previousExitCode;
     }
