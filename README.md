@@ -43,11 +43,28 @@ Normalize detected rule files into `.rulebridge/rules.json`, preserving source a
 
 ### `rulebridge diff`
 
-Compare normalized rules and surface cross-agent drift, agent-only rules, scope mismatches, and package-manager conflicts.
+Compare normalized rules and surface cross-agent findings with explicit severity levels:
+
+- `[info]` — useful differences such as agent-only rules that do not block CI by themselves
+- `[warning]` — drift that should be reviewed, such as duplicate rules or stale path references
+- `[error]` — direct conflicts, such as incompatible tool choices or opposite instructions
+
+Current analysis detects:
+
+- same instruction with different scopes
+- duplicate rules inside one agent
+- stale scope globs that match no repository files
+- stale backticked file/path references
+- agent-only coverage differences
+- package-manager conflicts (`npm`, `pnpm`, `yarn`, `bun`)
+- test-framework conflicts (`Jest`, `Vitest`, `Mocha`, `AVA`)
+- formatter conflicts (`Prettier`, `Biome`, `dprint`)
+- linter conflicts (`ESLint`, `Biome`, `StandardJS`)
+- opposite directives such as `Use X` versus `Never use X`
 
 ### `rulebridge check`
 
-Run consistency analysis directly against the repository and return exit code `1` when drift is found, making RuleBridge usable as a CI or pull-request gate.
+Run the same analysis directly against the repository. Informational findings are allowed; warnings and errors return exit code `1`, making RuleBridge usable as a CI or pull-request gate.
 
 ```yaml
 - run: npx rulebridge check
@@ -82,7 +99,7 @@ Safety behavior:
 
 ## Verification
 
-RuleBridge includes reproducible mismatch fixtures and automated tests for discovery, import semantics, diff warnings, CI exit codes, dry-run behavior, handwritten-content preservation, native generation, and repeated-fix idempotence.
+RuleBridge includes reproducible mismatch fixtures and automated tests for discovery, import semantics, severity-aware analysis, stale paths, duplicate detection, opposite instructions, broader tool conflicts, CI exit codes, dry-run behavior, handwritten-content preservation, native generation, and repeated-fix idempotence.
 
 Run the full verification suite locally with:
 
@@ -102,9 +119,11 @@ npm run verify
 - [x] `fix` — generate compatible native configurations
 - [x] `fix --dry-run`
 - [x] preserve handwritten and agent-specific content
-- [x] basic conflict and duplicate/drift detection
-- [ ] stale file-reference detection
-- [ ] richer semantic conflict detection
+- [x] duplicate-rule detection
+- [x] stale file/path reference detection
+- [x] richer cross-tool conflict detection
+- [x] opposite-instruction detection
+- [x] info / warning / error severity levels
 - [ ] generated-file cleanup manifest
 
 ## Supported agents
