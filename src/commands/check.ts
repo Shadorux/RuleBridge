@@ -2,6 +2,8 @@ import { analyzeRules } from '../analyze.js';
 import { discoverRuleSources } from '../discovery.js';
 import { parseRuleSource } from '../parsers.js';
 
+const ICONS = { info: 'ℹ', warning: '⚠', error: '✖' } as const;
+
 export async function checkRules(root: string) {
   const sources = await discoverRuleSources(root);
   console.log('RuleBridge check\n');
@@ -19,14 +21,19 @@ export async function checkRules(root: string) {
     return;
   }
 
-  const analysis = analyzeRules(rules);
+  const analysis = await analyzeRules(rules, root);
 
   for (const item of analysis.consistent) console.log(`✓ ${item}`);
-  for (const item of analysis.warnings) console.log(`⚠ ${item}`);
+  for (const finding of analysis.findings) {
+    console.log(`${ICONS[finding.severity]} [${finding.severity}] ${finding.message}`);
+  }
 
-  if (analysis.warnings.length > 0) {
+  const errors = analysis.findings.filter((finding) => finding.severity === 'error').length;
+  const warnings = analysis.findings.filter((finding) => finding.severity === 'warning').length;
+
+  if (errors > 0 || warnings > 0) {
     console.error(
-      `\nRuleBridge check failed: ${analysis.warnings.length} consistency warning${analysis.warnings.length === 1 ? '' : 's'} found.`,
+      `\nRuleBridge check failed: ${errors} error${errors === 1 ? '' : 's'} and ${warnings} warning${warnings === 1 ? '' : 's'} found.`,
     );
     process.exitCode = 1;
     return;
