@@ -1,36 +1,53 @@
 # RuleBridge
 
-**One rule set. Native instructions for every coding agent.**
+**ESLint for your AI coding-agent instructions.**
 
-RuleBridge is a local-first TypeScript CLI that inspects, compares, and safely translates project instructions between Codex, Claude Code, Cursor, and GitHub Copilot. It translates scope semantics instead of blindly copying Markdown, and it never silently replaces handwritten configuration.
+Detect contradictions and drift across `AGENTS.md`, `CLAUDE.md`, Cursor rules, and GitHub Copilot instructions—then safely reconcile them without destroying handwritten content.
 
-## Before / after
+## Install
 
-Before, a project can drift into several slightly different rule files:
+```bash
+npx @shadorux/rulebridge check
+```
+
+Or install the `rulebridge` command in a project:
+
+```bash
+npm install -D @shadorux/rulebridge
+npx rulebridge check
+```
+
+## A real conflict
+
+Three agents can quietly tell the same coding agent to use different package managers:
 
 ```text
 .cursor/rules/typescript.mdc             → globs: src/**/*.ts
 .github/instructions/ts.instructions.md  → applyTo: **/*.ts
 CLAUDE.md                                → use pnpm
+AGENTS.md                                → use npm
+.github/copilot-instructions.md          → use yarn
 ```
 
-After `rulebridge check`, drift is explicit. After `rulebridge fix`, each agent gets native RuleBridge-owned output while the original handwritten files remain intact.
+Run the check from the repository root:
 
 ```text
-AGENTS.md                                      + managed section
-CLAUDE.md                                      + managed section
-.cursor/rules/rulebridge-<id>.mdc             + native Cursor rule
-.github/instructions/rulebridge-<id>.instructions.md + native Copilot rule
+$ npx rulebridge check
+RuleBridge check
+
+✖ [error] Conflicting package manager instructions: npm, pnpm, and yarn.
+⚠ [warning] Same instruction, different scope: Use TypeScript strict mode.
+
+RuleBridge check failed: 1 error and 1 warning found.
 ```
 
-## Install
+When you are ready to reconcile the instruction set, preview the safe plan first:
 
 ```bash
-npm install -D @shadorux/rulebridge
-# or, before publishing: npm install -D ./rulebridge-0.1.0.tgz
+npx rulebridge fix --dry-run
 ```
 
-The unscoped `rulebridge` package name is already owned on npm. This package uses the available scoped name `@shadorux/rulebridge` while keeping the `rulebridge` CLI command.
+RuleBridge creates native, ownership-marked outputs for each agent and preserves handwritten source files. Nothing is written during a dry run.
 
 ## CLI
 
@@ -45,7 +62,7 @@ rulebridge fix                 # apply only RuleBridge-owned changes
 
 `check` exits with code 1 for warnings or errors; informational findings do not block CI.
 
-## Supported formats
+## Supported agents
 
 | Agent | Handwritten inputs | Generated output |
 | --- | --- | --- |
@@ -54,7 +71,7 @@ rulebridge fix                 # apply only RuleBridge-owned changes
 | Cursor | `.cursorrules`, `.cursor/rules/**/*.mdc` | `.cursor/rules/rulebridge-<id>.mdc` |
 | GitHub Copilot | `.github/copilot-instructions.md`, `.github/instructions/**/*.instructions.md` | `.github/instructions/rulebridge-<id>.instructions.md` |
 
-## Safety model
+## Safety guarantees
 
 - Handwritten `AGENTS.md` and `CLAUDE.md` content stays outside a marked managed block.
 - Cursor and Copilot output is written to separate, ownership-marked files.
@@ -65,6 +82,31 @@ rulebridge fix                 # apply only RuleBridge-owned changes
 ## Why not just copy files?
 
 The formats are not interchangeable. Cursor uses `globs` and `alwaysApply`; Copilot uses `applyTo`; Codex and Claude primarily use project Markdown. RuleBridge normalizes those choices, preserves them where each format supports them, and flags meaningful contradictions such as different package managers, test frameworks, formatters, linters, stale paths, duplicate rules, and opposite directives.
+
+## Demo
+
+Run the reproducible contradiction fixture locally:
+
+```bash
+npm run demo
+```
+
+It runs `check` and `fix --dry-run` against `demo/fixture`, without changing the fixture or your repository. The fixture contains contradictory npm, pnpm, and yarn instructions.
+
+For a short animated terminal recording, install [VHS](https://github.com/charmbracelet/vhs) and run:
+
+```bash
+vhs scripts/demo.tape
+```
+
+The tape writes `demo/rulebridge-demo.gif`.
+
+## Roadmap
+
+- Gemini CLI support
+- Windsurf support
+- GitHub Action for pull-request checks
+- Additional semantic conflict detectors
 
 ## Compared with basic sync tools
 

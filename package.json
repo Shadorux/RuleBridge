@@ -1,7 +1,7 @@
 {
   "name": "@shadorux/rulebridge",
   "version": "0.1.0",
-  "description": "Make your AI coding rules work everywhere.",
+  "description": "ESLint for your AI coding-agent instructions: detect conflicts and safely reconcile agent rules.",
   "author": "Shadorux",
   "homepage": "https://github.com/Shadorux/RuleBridge#readme",
   "repository": {
@@ -21,18 +21,26 @@
     "check": "tsc -p tsconfig.json --noEmit",
     "test": "node --import tsx --test test/*.test.ts",
     "verify": "npm run check && npm test && npm run build",
-    "start": "node dist/cli.js"
+    "start": "node dist/cli.js",
+    "demo": "npm run build && node scripts/demo.mjs",
+    "prepublishOnly": "npm run verify"
   },
   "keywords": [
-    "ai",
+    "ai-coding",
+    "agents-md",
     "coding-agents",
     "codex",
+    "openai-codex",
     "claude-code",
     "cursor",
     "github-copilot",
     "developer-tools",
-    "cli"
+    "cli",
+    "typescript"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "license": "MIT",
   "engines": {
     "node": ">=20"

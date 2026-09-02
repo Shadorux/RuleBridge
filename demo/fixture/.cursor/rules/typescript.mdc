@@ -1,0 +1,8 @@
+---
+description: TypeScript project rules
+globs: src/**/*.ts
+alwaysApply: false
+---
+
+Use yarn for package management.
+Use TypeScript strict mode.
